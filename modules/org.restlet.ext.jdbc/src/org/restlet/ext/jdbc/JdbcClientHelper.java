@@ -1,33 +1,33 @@
 /**
  * Copyright 2005-2014 Restlet
- * 
+ *
  * The contents of this file are subject to the terms of one of the following
  * open source licenses: Apache 2.0 or LGPL 3.0 or LGPL 2.1 or CDDL 1.0 or EPL
  * 1.0 (the "Licenses"). You can select the license that you prefer but you may
  * not use this file except in compliance with one of these Licenses.
- * 
+ *
  * You can obtain a copy of the Apache 2.0 license at
  * http://www.opensource.org/licenses/apache-2.0
- * 
+ *
  * You can obtain a copy of the LGPL 3.0 license at
  * http://www.opensource.org/licenses/lgpl-3.0
- * 
+ *
  * You can obtain a copy of the LGPL 2.1 license at
  * http://www.opensource.org/licenses/lgpl-2.1
- * 
+ *
  * You can obtain a copy of the CDDL 1.0 license at
  * http://www.opensource.org/licenses/cddl1
- * 
+ *
  * You can obtain a copy of the EPL 1.0 license at
  * http://www.opensource.org/licenses/eclipse-1.0
- * 
+ *
  * See the Licenses for the specific language governing permissions and
  * limitations under the Licenses.
- * 
+ *
  * Alternatively, you can obtain a royalty free commercial license with less
  * limitations, transferable or non-transferable, directly at
  * http://restlet.com/products/restlet-framework
- * 
+ *
  * Restlet is a registered trademark of Restlet S.A.S.
  */
 
@@ -84,7 +84,7 @@ import org.xml.sax.SAXException;
  * retrieved (unlimited by default).
  * <p>
  * Do not forget to register your JDBC drivers before using this client. See
- * {@link DriverManager} for details.
+ * {@link java.sql.DriverManager} for details.
  * <p>
  * Sample XML request:<br>
  * <br>
@@ -117,16 +117,21 @@ import org.xml.sax.SAXException;
  * <p>
  * Several SQL Statements can be specified. A {@link RowSetRepresentation} of
  * the last correctly executed SQL request is returned to the Client.
- * 
+ *
  * @see org.restlet.ext.jdbc.RowSetRepresentation
- * 
+ *
  * @author Jerome Louvel
  * @author Thierry Boileau
  */
 public class JdbcClientHelper extends ClientHelper {
+
+    private boolean overrideResultSetTypes;
+    private int resultSetType;
+    private int resultSetConcurrency;
+
     /**
      * Creates an uniform call.
-     * 
+     *
      * @param jdbcURI
      *            The database's JDBC URI (ex:
      *            jdbc:mysql://[hostname]/[database]).
@@ -144,7 +149,7 @@ public class JdbcClientHelper extends ClientHelper {
 
     /**
      * Creates a connection pool for a given connection configuration.
-     * 
+     *
      * @param uri
      *            The connection URI.
      * @param properties
@@ -152,7 +157,7 @@ public class JdbcClientHelper extends ClientHelper {
      * @return The new connection pool.
      */
     public static ObjectPool createConnectionPool(String uri,
-            Properties properties) {
+                                                  Properties properties) {
         // Create an ObjectPool that will serve as the actual pool of
         // connections
         ObjectPool result = new GenericObjectPool(null);
@@ -176,7 +181,7 @@ public class JdbcClientHelper extends ClientHelper {
 
     /**
      * Escapes quotes in a SQL query.
-     * 
+     *
      * @param query
      *            The SQL query to escape.
      * @return The escaped SQL query.
@@ -202,7 +207,7 @@ public class JdbcClientHelper extends ClientHelper {
 
     /**
      * Constructor.
-     * 
+     *
      * @param client
      *            The client to help.
      */
@@ -217,7 +222,7 @@ public class JdbcClientHelper extends ClientHelper {
 
     /**
      * Returns a JDBC connection.
-     * 
+     *
      * @param uri
      *            The connection URI.
      * @param properties
@@ -225,10 +230,10 @@ public class JdbcClientHelper extends ClientHelper {
      * @param usePooling
      *            Indicates if the connection pooling should be used.
      * @return The JDBC connection.
-     * @throws SQLException
+     * @throws java.sql.SQLException
      */
     protected Connection getConnection(String uri, Properties properties,
-            boolean usePooling) throws SQLException {
+                                       boolean usePooling) throws SQLException {
         Connection result = null;
 
         if (usePooling) {
@@ -243,7 +248,7 @@ public class JdbcClientHelper extends ClientHelper {
                         if (equal && properties.containsKey(key)) {
                             equal = equal
                                     && (properties.get(key).equals(c
-                                            .getProperties().get(key)));
+                                    .getProperties().get(key)));
                         } else {
                             equal = false;
                         }
@@ -270,7 +275,7 @@ public class JdbcClientHelper extends ClientHelper {
 
     /**
      * Handles a call.
-     * 
+     *
      * @param request
      *            The request to handle.
      * @param response
@@ -383,18 +388,23 @@ public class JdbcClientHelper extends ClientHelper {
 
     /**
      * Helper
-     * 
+     *
      * @param connection
      * @param returnGeneratedKeys
      * @param sqlRequests
      * @return the result of the last executed SQL request
      */
     private JdbcResult handleSqlRequests(Connection connection,
-            boolean returnGeneratedKeys, List<String> sqlRequests) {
+                                         boolean returnGeneratedKeys, List<String> sqlRequests) {
         JdbcResult result = null;
         try {
             connection.setAutoCommit(true);
-            Statement statement = connection.createStatement();
+            Statement statement = null;
+            if (overrideResultSetTypes) {
+                statement = connection.createStatement(resultSetType, resultSetConcurrency);
+            } else {
+                statement = connection.createStatement();
+            }
             for (String sqlRequest : sqlRequests) {
                 statement.execute(sqlRequest,
                         returnGeneratedKeys ? Statement.RETURN_GENERATED_KEYS
@@ -420,5 +430,17 @@ public class JdbcClientHelper extends ClientHelper {
         }
         return result;
 
+    }
+
+    /**
+     * Sets ResultSet properties to be use during statement creation.
+     *
+     * @param resultSetType
+     * @param resultSetConcurrency
+     */
+    public void setResultSetProperties(int resultSetType, int resultSetConcurrency) {
+        this.overrideResultSetTypes = true;
+        this.resultSetType = resultSetType;
+        this.resultSetConcurrency = resultSetConcurrency;
     }
 }
